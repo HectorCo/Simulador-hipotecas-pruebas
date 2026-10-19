@@ -243,7 +243,11 @@
                 </div>
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                    <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Honorarios comprador</label><input type="number" id="agencyFees" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Honorarios comprador</label>
+                        <input type="number" id="agencyFees" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm">
+                        <p class="text-[8px] text-slate-500 font-bold px-1 leading-tight">Fijo (€) o % (ej. 1.5). Si es %, se suma IVA (21%)</p>
+                    </div>
                     <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Precio de Compra</label><input type="number" id="initPrice" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
                     <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Aportación cliente</label><input type="number" id="initSavings" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
                     <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Ingresos netos/mes</label><input type="number" id="initIncome" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
@@ -494,7 +498,7 @@ function startApp() {
     const childrenInput = document.querySelector('input[name="children"]:checked');
     const hasChildren = childrenInput ? childrenInput.value : 'no';
 
-    const agencyFees = parseFloat(document.getElementById('agencyFees').value) || 0;
+    const agencyFeesInput = parseFloat(document.getElementById('agencyFees').value) || 0;
     const initPrice = parseFloat(document.getElementById('initPrice').value) || 0;
     const initSavings = parseFloat(document.getElementById('initSavings').value) || 0;
     const initIncome = parseFloat(document.getElementById('initIncome').value) || 0;
@@ -523,9 +527,17 @@ function startApp() {
         taxValue = age <= 35 ? 8 : 13;
     }
 
+    // ─── Cálculo de Honorarios de Agencia (Fijo o Porcentaje + IVA) ───
+    let agencyFeesCalculated = agencyFeesInput;
+    // Si el valor es menor a 10, asumimos que es un porcentaje (ej: 1.5)
+    if (agencyFeesInput > 0 && agencyFeesInput < 10) {
+        // Se calcula sobre el precio de compra y se le suma el 21% de IVA
+        agencyFeesCalculated = (initPrice * (agencyFeesInput / 100)) * 1.21;
+    }
+
     const maxAge = Math.max(e1 || 0, e2 || 0);
     const calculatedYears = maxAge > 0 ? Math.min(35, Math.max(1, 75 - maxAge)) : 30;
-    const mgmtTotal = agencyFees + 4800;
+    const mgmtTotal = agencyFeesCalculated + 4800;
 
     document.getElementById('purchasePrice').value = initPrice;
     document.getElementById('taxPercent').value = taxValue;
