@@ -1,1 +1,10 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.simulador_hipotecas_bgg_v2.twa",
+        "sha256_cert_fingerprints": ["BC:09:2E:ED:4C:15:0B:62:2F:5B:6D:28:70:B2:A8:FA:83:ED:F9:DF:97:BE:38:8F:92:74:30:87:2F:6A:33:F8"]
+      }
+    }]
+
 
