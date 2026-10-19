@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bgg-hipoteca-v1';
+const CACHE_NAME = 'bgg-hipoteca-v2';
 const ASSETS = [
   '/',
   '/index.html',
