@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Simulador Hipotecario BGG</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="HipotecaBGG">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+    <meta name="apple-touch-fullscreen" content="yes">
+    <link rel="icon" type="image/png" href="icon.png">
+    <meta name="robots" content="noindex, nofollow">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>emailjs.init("wO_BV79wCIHf5aCJn");</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        html, body { height: 100%; margin: 0; }
+        body { font-family: 'Inter', sans-serif; overflow-x: hidden; overflow-y: hidden; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+        #splashScreen {
+            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding-top: max(1rem, env(safe-area-inset-top));
+            padding-left: max(1rem, env(safe-area-inset-left));
+            padding-right: max(1rem, env(safe-area-inset-right));
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .input-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .input-glass:focus {
+            border-color: #3b82f6;
+            outline: none;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .office-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 0.5rem;
+        }
+        .bg-card { background: #ffffff; border: 1px solid #e2e8f0; }
+        .highlight-yellow { background-color: #fffbeb; border: 1px solid #fbbf24; }
+        .progress-bar { transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        #extraContributionContainer { transition: all 0.5s ease; opacity: 0; max-height: 0; overflow: hidden; }
+        #extraContributionContainer.visible { opacity: 1; max-height: 300px; margin-top: 1rem; }
+        .session-item { transition: all 0.3s ease; }
+        .session-item:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.2);
+        }
+        .session-item.deleting {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        .session-item.hidden-by-filter {
+            display: none !important;
+        }
+        .import-area {
+            border: 2px dashed rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        .import-area.dragover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+        @media print {
+            .no-print { display: none !important; }
+            @page { size: A4 portrait; margin: 0.3cm; }
+            body { background: white !important; font-size: 9px !important; line-height: 1.2 !important; overflow: visible !important; }
+            nav, button, footer, .no-print, .tooltip-container { display: none !important; }
+            .lg\:col-span-4 { display: none !important; }
+            .lg\:col-span-8 { width: 100% !important; grid-column: span 12 / span 12 !important; padding: 0 !important; }
+            .bg-white, .bg-blue-50\/50, .bg-emerald-50, .bg-slate-50, .bg-rose-50 { 
+                page-break-inside: avoid !important; 
+                border: 1px solid #e2e8f0 !important; 
+                box-shadow: none !important; 
+                margin-bottom: 4px !important; 
+                padding: 6px 8px !important; 
+            }
+            #mainContent { max-width: 100% !important; padding: 0 !important; }
+            #mainResultsGrid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 4px !important; }
+            #investmentDetail { padding: 8px !important; margin-top: 4px !important; border-top-width: 3px !important; }
+            #investmentDetail h3 { font-size: 11px !important; margin-bottom: 6px !important; padding-bottom: 4px !important; }
+            #investmentDetail .grid { gap: 6px !important; }
+            #investmentDetail .space-y-4 > * { margin-top: 3px !important; margin-bottom: 3px !important; }
+            #printHeader { display: flex !important; border-bottom: 2px solid #0f172a; padding-bottom: 4px; margin-bottom: 6px; justify-content: space-between; align-items: center; }
+            #printHeader h1 { font-size: 13px !important; margin: 0 !important; }
+            #printHeader p { font-size: 8px !important; margin: 0 !important; }
+            #notesArea { display: block !important; margin-top: 4px; border-top: 1px dashed #ccc; padding-top: 4px; }
+            #notesArea .h-24 { height: 40px !important; }
+            p, span, label, div { font-size: 8px !important; }
+            .text-3xl { font-size: 16px !important; }
+            .text-2xl { font-size: 13px !important; }
+            .text-xl { font-size: 11px !important; }
+            .text-lg { font-size: 10px !important; }
+            .text-sm { font-size: 8px !important; }
+            .rounded-2xl, .rounded-\[1\.5rem\], .rounded-\[2rem\], .rounded-xl { border-radius: 6px !important; }
+            #titularBanner { padding: 5px 8px !important; margin-bottom: 4px !important; }
+            #titularBanner p { font-size: 7px !important; }
+            #ratioStatusBox { min-height: 30px !important; padding: 4px !important; }
+            #extraContributionContainer { padding: 4px !important; }
+            #extraContributionContainer p { margin: 0 !important; }
+            textarea { display: none !important; }
+            .gap-8 { gap: 6px !important; }
+            .gap-4 { gap: 4px !important; }
+            .gap-3 { gap: 3px !important; }
+            .p-6 { padding: 6px !important; }
+            .p-5 { padding: 5px !important; }
+            .p-4 { padding: 4px !important; }
+            .py-3 { padding-top: 3px !important; padding-bottom: 3px !important; }
+            .py-1\.5 { padding-top: 2px !important; padding-bottom: 2px !important; }
+            .px-4 { padding-left: 6px !important; padding-right: 6px !important; }
+            .mb-6 { margin-bottom: 4px !important; }
+            .mb-4 { margin-bottom: 3px !important; }
+            .mt-4 { margin-top: 3px !important; }
+            .pb-4 { padding-bottom: 4px !important; }
+            .border-b { border-bottom-width: 1px !important; }
+            .divide-y > * { padding-top: 2px !important; padding-bottom: 2px !important; }
+            .space-y-4 > * + * { margin-top: 3px !important; }
+            .space-y-2 > * + * { margin-top: 2px !important; }
+            #printNotes.hidden-print-notes { display: block !important; visibility: visible !important; min-height: 30px !important; padding: 4px !important; font-size: 8px !important; border: 1px dashed #cbd5e1 !important; background: #f8fafc !important; white-space: pre-wrap !important; word-wrap: break-word !important; }
+            .no-print { display: none !important; }
+        }
+        .hidden-print-notes { display: none; }
+        #printHeader, #notesArea { display: none; }
+    </style>
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+</head>
+<body class="bg-slate-50">
+
+    <div id="splashScreen" class="fixed inset-0 z-[100] flex flex-col items-center justify-start overflow-y-auto p-4 transition-all duration-700">
+        <div class="max-w-3xl w-full py-8 space-y-6 animate-in fade-in zoom-in duration-700">
+            <div class="flex flex-col items-center text-center">
+                <div class="flex items-center justify-center gap-4 mb-4">
+                    <div class="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-2xl border-2 border-white/10 overflow-hidden flex-shrink-0">
+                        <img src="icon.png" alt="BGG" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=BGG'">
+                    </div>
+                    <div class="h-10 w-px bg-white/20"></div>
+                    <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-2xl border-2 border-blue-500/50 overflow-hidden flex-shrink-0 p-1.5">
+                        <img src="https://www.fincasblanco.com/assets/images/fincas_blanco_logo.svg" alt="Fincas Blanco" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\'text-blue-900 font-black text-[8px]\'>FB</span>'">
+                    </div>
+                </div>
+                <h1 class="text-2xl font-black text-white tracking-tighter uppercase">Simulador Hipotecario</h1>
+                <p class="text-slate-400 font-medium text-sm">Cuestionario previo</p>
+            </div>
+
+            <div class="glass rounded-3xl p-6 md:p-8 space-y-6">
+                <div id="savedSessionsContainer" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Simulaciones guardadas</p>
+                        <div class="flex items-center gap-2">
+                            <span id="sessionCount" class="text-[10px] font-black text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">0</span>
+                            <button onclick="clearAllSessions()" class="text-[9px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-wider transition-colors" title="Eliminar todas">Vaciar</button>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="text" id="sessionSearch" placeholder="Buscar simulación..." oninput="filterSessions(this.value)" class="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-xl text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                    </div>
+                    <div id="savedSessionsList" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+                    <p id="noResultsMsg" class="hidden text-[10px] text-slate-500 text-center py-2">No se encontraron simulaciones</p>
+                    <div class="pt-2 border-t border-white/10 space-y-2">
+                        <div class="flex gap-2">
+                            <button onclick="exportSessions()" class="flex-1 py-2 text-[10px] font-bold text-blue-400 uppercase border border-blue-500/30 bg-blue-500/10 rounded-xl hover:bg-blue-500/20 transition-all flex items-center justify-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Exportar JSON
+                            </button>
+                            <button onclick="document.getElementById('importFile').click()" class="flex-1 py-2 text-[10px] font-bold text-emerald-400 uppercase border border-emerald-500/30 bg-emerald-500/10 rounded-xl hover:bg-emerald-500/20 transition-all flex items-center justify-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                Importar
+                            </button>
+                            <input type="file" id="importFile" accept=".json" class="hidden" onchange="importSessions(this)">
+                        </div>
+                        <div id="dropZone" class="import-area rounded-xl p-3 text-center cursor-pointer" onclick="document.getElementById('importFile').click()">
+                            <p class="text-[9px] text-slate-400 font-medium"><span class="text-blue-400 font-bold">Arrastra</span> un archivo .json aquí o <span class="text-blue-400 font-bold">clica</span> para seleccionar</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Seleccionar Oficina de Origen</label>
+                    <div class="office-grid">
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Aguas" checked class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Aguas</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Av/ Madrid" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Av/ Madrid</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Capellades" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Capellades</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Collblanc" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Collblanc</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Cornellà" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Cornellà</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Enric Prat de la Riba" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Enric Prat de la Riba</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Maladeta" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Maladeta</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Sant Andreu de la Barca" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">St. Andreu de la Barca</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="Piera" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">Piera</div></label>
+                        <label class="cursor-pointer"><input type="radio" name="office" value="PVP" class="hidden peer"><div class="py-2.5 px-2 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-[11px] peer-checked:border-blue-500 peer-checked:bg-blue-600 peer-checked:text-white transition-all whitespace-nowrap">PVP</div></label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                    <div class="space-y-4">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Primer Titular</label>
+                        <div class="flex flex-col gap-2">
+                            <input type="text" id="titular1" placeholder="Nombre completo" class="w-full p-3.5 rounded-xl input-glass font-bold text-sm">
+                            <input type="number" id="edad1" placeholder="Edad" class="w-full p-3.5 rounded-xl input-glass font-bold text-sm">
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Segundo Titular</label>
+                        <div class="flex flex-col gap-2">
+                            <input type="text" id="titular2" placeholder="Nombre completo" class="w-full p-3.5 rounded-xl input-glass font-bold text-sm">
+                            <input type="number" id="edad2" placeholder="Edad" class="w-full p-3.5 rounded-xl input-glass font-bold text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">¿Existen hijos menores a cargo?</label>
+                    <div class="flex gap-4">
+                        <label class="flex-1 cursor-pointer"><input type="radio" name="children" value="si" class="hidden peer"><div class="p-3 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-xs peer-checked:border-blue-500 peer-checked:text-white transition-all">Sí</div></label>
+                        <label class="flex-1 cursor-pointer"><input type="radio" name="children" value="no" checked class="hidden peer"><div class="p-3 text-center border border-white/10 rounded-xl text-slate-400 font-bold text-xs peer-checked:border-blue-500 peer-checked:text-white transition-all">No</div></label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                    <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Honorarios comprador</label><input type="number" id="agencyFees" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
+                    <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Precio de Compra</label><input type="number" id="initPrice" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
+                    <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Aportación cliente</label><input type="number" id="initSavings" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
+                    <div class="space-y-2"><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 h-8 flex items-end">Ingresos netos/mes</label><input type="number" id="initIncome" placeholder="0 €" class="w-full p-4 rounded-xl input-glass font-bold text-sm"></div>
+                </div>
+
+                <div class="pt-6">
+                    <button onclick="startApp()" class="w-full p-5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-sm tracking-widest rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2">
+                        Iniciar Simulación
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </div>
+            </div>
+            <p class="text-center text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Gestion Global © 2026</p>
+        </div>
+    </div>
+
+    <div id="mainContent" class="opacity-0 transition-opacity duration-1000 max-w-6xl mx-auto px-4 py-8">
+        <div id="printHeader">
+            <div>
+                <h1 class="text-2xl font-black text-slate-900">Informe de Viabilidad Hipotecaria</h1>
+                <p id="printOffice" class="text-[10px] text-blue-600 font-bold uppercase mb-1"></p>
+                <p id="printDate" class="text-[10px] text-slate-500 font-bold uppercase"></p>
+            </div>
+            <img src="icon.jpg" class="h-12 w-12 rounded-lg" onerror="this.style.display='none'">
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 space-y-6 no-print">
+                <div class="bg-card p-7 rounded-[2rem] shadow-sm border border-slate-200">
+                    <h2 class="text-xs font-black text-slate-400 mb-8 uppercase tracking-widest">Ajustes del Simulador</h2>
+                    <div class="space-y-4">
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Precio Compraventa (€)</label><input type="number" id="purchasePrice" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 text-lg shadow-inner"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Impuestos (%)</label><input type="number" id="taxPercent" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 shadow-inner"></div>
+                            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Gestión (€)</label><input type="number" id="mgmtFees" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 shadow-inner"></div>
+                        </div>
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Ahorros Cliente (€)</label><input type="number" id="clientCash" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 shadow-inner"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Interés (%)</label><input type="number" id="interestRate" step="0.01" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 shadow-inner" value="3"></div>
+                            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Años</label><input type="number" id="years" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 shadow-inner" value="30"></div>
+                        </div>
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Ingresos Mes (€)</label><input type="number" id="monthlyIncome" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 shadow-inner"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Otros Préstamos</label><input type="number" id="otherLoans" oninput="calculateAll()" class="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 font-black text-rose-700 shadow-inner" placeholder="0"></div>
+                            <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Metros m²</label><input type="number" id="squareMeters" oninput="calculateAll()" class="highlight-yellow w-full p-3 rounded-xl border border-yellow-200 font-black text-slate-800 shadow-inner" placeholder="0"></div>
+                        </div>
+                        <div class="space-y-2 pt-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="window.print()" class="py-3 text-[10px] font-bold text-white bg-slate-800 uppercase rounded-xl hover:bg-slate-700 transition-all flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>PDF</button>
+                                <button id="sendBtn" onclick="sendByEmail()" class="py-3 text-[10px] font-bold text-white bg-blue-600 uppercase rounded-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>Enviar</button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="saveSession()" class="py-2.5 text-[10px] font-bold text-emerald-700 uppercase border border-emerald-300 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>Guardar</button>
+                                <button onclick="location.reload()" class="py-2.5 text-[10px] font-bold text-slate-400 uppercase border border-slate-200 rounded-xl hover:bg-rose-50 hover:text-rose-500 transition-all">Nueva Simulación</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="lg:col-span-8 space-y-4">
+                <div id="titularBanner" class="bg-blue-600 p-4 rounded-2xl text-white flex justify-between items-center shadow-lg">
+                    <div><p class="text-[9px] font-black uppercase opacity-60">Titulares Analizados</p><p id="resTitulares" class="text-sm font-bold tracking-tight">Cargando...</p></div>
+                    <div class="text-right"><p id="resOficina" class="text-[10px] font-black uppercase bg-white/20 px-2 py-1 rounded-lg"></p></div>
+                </div>
+                <div id="mainResultsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white p-6 rounded-[1.5rem] border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div><p class="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Capital Hipotecario</p><p id="resLoanAmount" class="text-3xl font-black text-slate-900 tracking-tighter">0 €</p></div>
+                        <div class="mt-4">
+                            <div class="flex justify-between items-end text-[10px] font-black mb-1"><span class="text-slate-400 uppercase">LTV (Financiación)</span><span id="resLTVPercent" class="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">0%</span></div>
+                            <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200"><div id="ltvBar" class="progress-bar bg-blue-600 h-full rounded-full" style="width: 0%"></div></div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-3"> 
+                        <div class="bg-white p-6 rounded-[1.5rem] border border-slate-200 shadow-sm">
+                            <div class="flex justify-between items-center mb-4">
+                                <div><p class="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Cuota Mensual</p><p id="resMonthlyPayment" class="text-3xl font-black text-blue-700 tracking-tighter">0 €</p></div>
+                                <div class="text-right border-l pl-4 border-slate-100"><p class="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Ratio Endeud.</p><p id="resDebtRatio" class="text-xl font-black text-slate-800 tracking-tighter">0%</p></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[9px] font-black text-slate-400 uppercase mb-1"><span>Ratio de Endeudamiento</span><div class="flex gap-2"><span class="text-emerald-600">≤35%</span><span class="text-amber-500">≤40%</span><span class="text-rose-600">&gt;40%</span></div></div>
+                                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200 relative">
+                                    <div id="debtRatioBar" class="progress-bar h-full rounded-full bg-emerald-500" style="width: 0%"></div>
+                                    <div class="absolute top-0 h-full w-px bg-amber-400/70" style="left:35%"></div>
+                                    <div class="absolute top-0 h-full w-px bg-rose-500/70" style="left:40%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="ratioStatusBox" class="p-3 rounded-xl text-[10px] font-black text-center border shadow-sm flex items-center justify-center min-h-[50px] uppercase tracking-wider">-- CALCULANDO --</div>
+                    </div>
+                </div>
+                <div id="investmentDetail" class="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-md border-t-4 border-t-blue-600">
+                    <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                        <h3 class="text-lg font-black text-slate-800 tracking-tight">Presupuesto de Inversión</h3>
+                        <div class="text-right"><span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Inversión Bruta</span><span id="resTotalInvestment" class="text-xl font-black text-slate-900 tracking-tighter">0 €</span></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center py-3 bg-blue-50/50 px-4 rounded-xl border border-blue-100"><span class="text-[10px] font-black text-blue-900 uppercase tracking-widest">Precio Venta:</span><span id="resPurchasePrice" class="font-black text-blue-900 text-xl tracking-tighter">0 €</span></div>
+                            <div class="flex justify-between items-center py-1.5 border-b border-slate-100 px-4"><div><span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider italic block">Impuestos:</span><span class="text-[9px] text-slate-400 font-medium">Cargo cliente</span></div><span id="resTaxAmount" class="font-black text-slate-800 tracking-tight">0 €</span></div>
+                            <div class="flex justify-between items-center py-1.5 border-b border-slate-100 px-4"><div><span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider italic block">Gestión:</span><span class="text-[9px] text-slate-400 font-medium">Cargo cliente</span></div><span id="resMgmtFees" class="font-black text-slate-800 tracking-tight">0 €</span></div>
+                            <div class="flex justify-between items-center py-3 bg-emerald-50 px-4 rounded-xl border border-emerald-100 mt-4"><div><span class="text-[10px] font-black text-emerald-700 uppercase tracking-widest block">Ahorros para entrada</span><span class="text-[9px] text-emerald-500 font-medium">(ahorros − impuestos − gestión)</span></div><span id="resCashAmount" class="font-black text-emerald-700 text-xl tracking-tighter">0 €</span></div>
+                            <div class="border border-slate-200 rounded-xl overflow-hidden mt-2 no-print">
+                                <div class="bg-slate-100 px-4 py-2">
+                                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Ahorros cliente necesarios por LTV</span></div>
+                                <div class="divide-y divide-slate-100">
+                                    <div class="flex justify-between items-center px-4 py-2.5"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span><span class="text-[10px] font-black text-slate-600 uppercase tracking-wider">LTV 80%</span></div><span id="resSavingsFor80" class="text-[11px] font-black text-emerald-700">0 €</span></div>
+                                    <div class="flex justify-between items-center px-4 py-2.5"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><span class="text-[10px] font-black text-slate-600 uppercase tracking-wider">LTV 90%</span></div><span id="resSavingsFor90" class="text-[11px] font-black text-amber-600">0 €</span></div>
+                                    <div class="flex justify-between items-center px-4 py-2.5"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0"></span><span class="text-[10px] font-black text-slate-600 uppercase tracking-wider">LTV 95%</span></div><span id="resSavingsFor95" class="text-[11px] font-black text-rose-600">0 €</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                             <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col justify-center">
+                                <div class="flex justify-between items-center mb-4"><span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ratio Tasación</span><span id="resPricePerMeter" class="font-black text-slate-800 text-xs">0 €/m²</span></div>
+                                <div class="flex flex-col"><span class="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Valor Tasación Objetivo</span><span id="resMinAppraisal" class="text-2xl font-black text-indigo-800 tracking-tighter">0 €</span></div>
+                             </div>
+                             <div id="extraContributionContainer" class="bg-rose-50 border border-rose-200 p-4 rounded-xl text-center"><p class="text-[9px] font-extrabold text-rose-500 uppercase mb-1 tracking-widest">⚠️ APORTACIÓN EXTRA</p><p id="resExtraContribution" class="text-xl font-black text-rose-700 tracking-tighter">0 €</p></div>
+                             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100"><label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">📝 Notas de la operación</label><textarea id="operationNotes" rows="5" placeholder="Comercial responsable, años en la empresa, nombre de empresas, observaciones relevantes..." class="no-print w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-700 font-medium resize-none focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 placeholder:text-slate-300 leading-relaxed"></textarea><div id="printNotes" class="hidden-print-notes" style="display:none;">(Sin notas)</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="notesArea"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Observaciones y Notas:</p><div class="h-24 border-b border-slate-200"></div></div>
+                <footer class="text-center py-4 no-print mt-8"><p class="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em]">Gestion Global © 2026</p></footer>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const inputIds = ['purchasePrice', 'taxPercent', 'mgmtFees', 'clientCash', 'interestRate', 'years', 'monthlyIncome', 'otherLoans', 'squareMeters'];
+let persistenceData = { oficina: '', titulares: '', edades: '', hijos: '' };
+let calculatedData = {};
+const STORAGE_KEY = 'bgg_hipoteca_sessions';
+
+function format(val) { 
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(val); 
+}
+
+function calculateAll() {
+    const now = new Date();
+    const dateEl = document.getElementById('printDate');
+    if (dateEl) dateEl.innerText = "Informe emitido el " + now.toLocaleDateString() + " a las " + now.toLocaleTimeString();
+
+    const price = parseFloat(document.getElementById('purchasePrice').value) || 0;
+    const taxPct = (parseFloat(document.getElementById('taxPercent').value) || 0) / 100;
+    const mgmt = parseFloat(document.getElementById('mgmtFees').value) || 0;
+    const cash = parseFloat(document.getElementById('clientCash').value) || 0;
+    const rateYear = (parseFloat(document.getElementById('interestRate').value) || 0) / 100;
+    const years = parseFloat(document.getElementById('years').value) || 0;
+    const income = parseFloat(document.getElementById('monthlyIncome').value) || 0;
+    const otherDebt = parseFloat(document.getElementById('otherLoans').value) || 0;
+    const meters = parseFloat(document.getElementById('squareMeters').value) || 0;
+
+    const taxAmount = price * taxPct;
+    const gastosPrevios = taxAmount + mgmt;
+    const cashForEntry  = Math.max(0, cash - gastosPrevios);
+    const loanToAsk     = Math.max(0, price - cashForEntry);
+    const totalClientCost = price + taxAmount + mgmt;
+    const ltv = price > 0 ? (loanToAsk / price) : 0;
+
+    const r = rateYear / 12;
+    const n = years * 12;
+    let monthlyPayment = 0;
+    if (r > 0 && n > 0) {
+        monthlyPayment = loanToAsk * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    } else if (n > 0) {
+        monthlyPayment = loanToAsk / n;
+    }
+
+    const netIncome = Math.max(0, income - otherDebt);
+    const debtRatio = netIncome > 0 ? (monthlyPayment / netIncome) : (monthlyPayment > 0 ? 1 : 0);
+
+    calculatedData = {
+        precio: price, impuestos: taxAmount, gestion: mgmt, gastosPrevios: gastosPrevios,
+        ahorros: cash, ahorrosParaEntrada: cashForEntry, hipoteca: loanToAsk,
+        ltv: (ltv * 100).toFixed(2) + "%", cuota: monthlyPayment,
+        ratio: (debtRatio * 100).toFixed(2) + "%", ingresos: income,
+        otrosPrestamos: otherDebt, años: years, interes: (rateYear * 100).toFixed(2) + "%",
+        metros: meters, totalClientCost: totalClientCost,
+        savingsFor95: price > 0 ? price * 0.05 + gastosPrevios : 0,
+        savingsFor90: price > 0 ? price * 0.10 + gastosPrevios : 0,
+        savingsFor80: price > 0 ? price * 0.20 + gastosPrevios : 0
+    };
+
+    document.getElementById('resPurchasePrice').innerText = format(price);
+    document.getElementById('resLoanAmount').innerText = format(loanToAsk);
+    document.getElementById('resLTVPercent').innerText = (ltv * 100).toFixed(2) + "%";
+    const ltvPct = ltv * 100;
+    const ltvBar = document.getElementById('ltvBar');
+    ltvBar.style.width = Math.min(ltvPct, 100) + "%";
+    if (ltvPct <= 80) ltvBar.className = "progress-bar bg-emerald-500 h-full rounded-full";
+    else if (ltvPct <= 95) ltvBar.className = "progress-bar bg-amber-400 h-full rounded-full";
+    else ltvBar.className = "progress-bar bg-rose-600 h-full rounded-full";
+
+    document.getElementById('resMonthlyPayment').innerText = format(monthlyPayment);
+    document.getElementById('resDebtRatio').innerText = (debtRatio * 100).toFixed(2) + "%";
+
+    const debtRatioBar = document.getElementById('debtRatioBar');
+    const debtPct = Math.min(debtRatio * 100, 100);
+    debtRatioBar.style.width = (debtPct / 60 * 100).toFixed(1) + "%";
+    if (debtRatio <= 0.35) debtRatioBar.className = "progress-bar h-full rounded-full bg-emerald-500";
+    else if (debtRatio <= 0.40) debtRatioBar.className = "progress-bar h-full rounded-full bg-amber-400";
+    else debtRatioBar.className = "progress-bar h-full rounded-full bg-rose-600";
+
+    document.getElementById('resTaxAmount').innerText = format(taxAmount);
+    document.getElementById('resMgmtFees').innerText = format(mgmt);
+    document.getElementById('resTotalInvestment').innerText = format(totalClientCost);
+    document.getElementById('resCashAmount').innerText = format(cashForEntry);
+    const minAppraisal = loanToAsk / 0.8;
+    document.getElementById('resPricePerMeter').innerText = format(meters > 0 ? minAppraisal / meters : 0) + "/m²";
+    document.getElementById('resMinAppraisal').innerText = format(minAppraisal);
+
+    const savingsFor95 = price * 0.05 + gastosPrevios;
+    const savingsFor90 = price * 0.10 + gastosPrevios;
+    const savingsFor80 = price * 0.20 + gastosPrevios;
+    document.getElementById('resSavingsFor95').innerText = price > 0 ? format(savingsFor95) : '—';
+    document.getElementById('resSavingsFor90').innerText = price > 0 ? format(savingsFor90) : '—';
+    document.getElementById('resSavingsFor80').innerText = price > 0 ? format(savingsFor80) : '—';
+
+    const statusBox = document.getElementById('ratioStatusBox');
+    const extraBox = document.getElementById('extraContributionContainer');
+
+    if (price <= 0) {
+        statusBox.innerText = "PENDIENTE DE DATOS";
+        statusBox.className = "p-3 rounded-xl text-[10px] font-black text-center border bg-slate-50 text-slate-400 flex items-center justify-center min-h-[50px]";
+        extraBox.classList.remove('visible');
+    } else if (ltv > 1.01 || debtRatio > 0.40) {
+        statusBox.innerText = "DENEGADA: RIESGO ELEVADO";
+        statusBox.className = "p-3 rounded-xl text-[10px] font-black text-center border bg-rose-50 text-rose-700 border-rose-200 shadow-sm flex items-center justify-center min-h-[50px]";
+        extraBox.classList.add('visible');
+        const targetPay = netIncome * 0.4;
+        let loanByDebt = r > 0 ? targetPay * ((Math.pow(1 + r, n) - 1) / (r * Math.pow(1 + r, n))) : targetPay * n;
+        const extraLTV  = Math.max(0, loanToAsk - price);
+        const extraDebt = Math.max(0, loanToAsk - loanByDebt);
+        document.getElementById('resExtraContribution').innerText = format(Math.max(extraLTV, extraDebt));
+    } else {
+        statusBox.innerText = debtRatio > 0.35 ? "VIABILIDAD CONDICIONADA" : "OPERACIÓN VIABLE";
+        statusBox.className = debtRatio > 0.35 ? "p-3 rounded-xl text-[10px] font-black text-center border bg-orange-50 text-orange-700 border-orange-200 flex items-center justify-center min-h-[50px]" : "p-3 rounded-xl text-[10px] font-black text-center border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center justify-center min-h-[50px]";
+        extraBox.classList.remove('visible');
+    }
+}
+
+function startApp() {
+    const officeInput = document.querySelector('input[name="office"]:checked');
+    const office = officeInput ? officeInput.value : 'No especificada';
+    const t1 = document.getElementById('titular1').value;
+    const e1 = parseInt(document.getElementById('edad1').value, 10) || 0;
+    const t2 = document.getElementById('titular2').value;
+    const e2 = parseInt(document.getElementById('edad2').value, 10) || 0;
+    const childrenInput = document.querySelector('input[name="children"]:checked');
+    const hasChildren = childrenInput ? childrenInput.value : 'no';
+
+    const agencyFees = parseFloat(document.getElementById('agencyFees').value) || 0;
+    const initPrice = parseFloat(document.getElementById('initPrice').value) || 0;
+    const initSavings = parseFloat(document.getElementById('initSavings').value) || 0;
+    const initIncome = parseFloat(document.getElementById('initIncome').value) || 0;
+
+    persistenceData.oficina = office;
+    persistenceData.titulares = (t1 + (t2 ? ' y ' + t2 : '')).trim() || 'No especificados';
+    persistenceData.edades = (e1 + (e2 > 0 ? ' y ' + e2 : '')) + " años";
+    persistenceData.hijos = hasChildren;
+
+    // ─── Cálculo de impuestos según edad de titulares ───
+    // ≤35 años = 8%  |  >35 años = 13%  |  Mixto = 11%
+    let taxValue = 13;
+    const hasT1 = e1 > 0;
+    const hasT2 = e2 > 0;
+
+    if (hasT1 && hasT2) {
+        // Dos titulares
+        const bothYoung = e1 <= 35 && e2 <= 35;
+        const bothOld   = e1 > 35 && e2 > 35;
+        if (bothYoung)      taxValue = 8;
+        else if (bothOld)   taxValue = 13;
+        else                taxValue = 11;  // Mixto
+    } else if (hasT1 || hasT2) {
+        // Solo un titular
+        const age = hasT1 ? e1 : e2;
+        taxValue = age <= 35 ? 8 : 13;
+    }
+
+    const maxAge = Math.max(e1 || 0, e2 || 0);
+    const calculatedYears = maxAge > 0 ? Math.min(35, Math.max(1, 75 - maxAge)) : 30;
+    const mgmtTotal = agencyFees + 4800;
+
+    document.getElementById('purchasePrice').value = initPrice;
+    document.getElementById('taxPercent').value = taxValue;
+    document.getElementById('clientCash').value = initSavings;
+    document.getElementById('mgmtFees').value = mgmtTotal;
+    document.getElementById('years').value = calculatedYears;
+    document.getElementById('monthlyIncome').value = initIncome > 0 ? initIncome : '';
+
+    document.getElementById('resTitulares').innerText = persistenceData.titulares;
+    document.getElementById('resOficina').innerText = office;
+    document.getElementById('printOffice').innerText = 'Oficina: ' + office;
+
+    const splash = document.getElementById('splashScreen');
+    const main = document.getElementById('mainContent');
+
+    splash.style.opacity = '0';
+    splash.style.transform = 'translateY(-20px)';
+
+    setTimeout(() => {
+        splash.style.display = 'none';
+        document.body.style.overflowY = 'auto';
+        main.classList.remove('opacity-0');
+        calculateAll();
+        syncPrintNotes();
+    }, 700);
+}
+
+// ─── GESTIÓN DE SESIONES ───────────────────────────────────────────
+
+function getSessions() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveSessions(sessions) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+}
+
+function generateSessionId() {
+    return 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+function saveSession() {
+    const sessions = getSessions();
+    const newSession = {
+        id: generateSessionId(),
+        name: persistenceData.titulares || 'Simulación sin nombre',
+        savedAt: new Date().toLocaleString('es-ES'),
+        purchasePrice: document.getElementById('purchasePrice').value,
+        taxPercent: document.getElementById('taxPercent').value,
+        mgmtFees: document.getElementById('mgmtFees').value,
+        clientCash: document.getElementById('clientCash').value,
+        interestRate: document.getElementById('interestRate').value,
+        years: document.getElementById('years').value,
+        monthlyIncome: document.getElementById('monthlyIncome').value,
+        otherLoans: document.getElementById('otherLoans').value,
+        squareMeters: document.getElementById('squareMeters').value,
+        operationNotes: document.getElementById('operationNotes').value,
+        persistenceData: { ...persistenceData }
+    };
+    sessions.unshift(newSession);
+    saveSessions(sessions);
+
+    const btn = event.currentTarget;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓ Guardado';
+    btn.classList.add('bg-emerald-200');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('bg-emerald-200'); }, 2000);
+}
+
+function deleteSession(id, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('¿Eliminar esta simulación guardada?')) return;
+    const sessions = getSessions();
+    const filtered = sessions.filter(s => s.id !== id);
+    saveSessions(filtered);
+    renderSavedSessions();
+}
+
+function clearAllSessions() {
+    const sessions = getSessions();
+    if (sessions.length === 0) return;
+    if (!confirm(`¿Eliminar las ${sessions.length} simulaciones guardadas? Esta acción no se puede deshacer.`)) return;
+    localStorage.removeItem(STORAGE_KEY);
+    renderSavedSessions();
+}
+
+function renameSession(id, event) {
+    if (event) event.stopPropagation();
+    const sessions = getSessions();
+    const session = sessions.find(s => s.id === id);
+    if (!session) return;
+    const newName = prompt('Nuevo nombre para la simulación:', session.name);
+    if (newName === null || newName.trim() === '') return;
+    session.name = newName.trim();
+    saveSessions(sessions);
+    renderSavedSessions();
+}
+
+function filterSessions(query) {
+    const items = document.querySelectorAll('.session-item');
+    const noResults = document.getElementById('noResultsMsg');
+    let visibleCount = 0;
+    const lowerQuery = query.toLowerCase().trim();
+
+    items.forEach(item => {
+        const name = item.dataset.name || '';
+        const date = item.dataset.date || '';
+        const office = item.dataset.office || '';
+        const match = !lowerQuery || 
+                      name.toLowerCase().includes(lowerQuery) || 
+                      date.toLowerCase().includes(lowerQuery) ||
+                      office.toLowerCase().includes(lowerQuery);
+        if (match) {
+            item.classList.remove('hidden-by-filter');
+            visibleCount++;
+        } else {
+            item.classList.add('hidden-by-filter');
+        }
+    });
+    noResults.classList.toggle('hidden', visibleCount > 0);
+}
+
+// ─── EXPORTAR / IMPORTAR ─────────────────────────────────────────
+
+function exportSessions() {
+    const sessions = getSessions();
+    if (sessions.length === 0) {
+        alert('No hay simulaciones guardadas para exportar.');
+        return;
+    }
+    const exportData = {
+        app: 'Simulador Hipotecario BGG',
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        sessions: sessions
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bgg_hipotecas_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function importSessions(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data.sessions || !Array.isArray(data.sessions)) {
+                throw new Error('El archivo no contiene simulaciones válidas.');
+            }
+            const currentSessions = getSessions();
+            const importedCount = data.sessions.length;
+            const newSessions = data.sessions.map(s => ({
+                ...s,
+                id: generateSessionId(),
+                importedAt: new Date().toLocaleString('es-ES')
+            }));
+            const merged = [...newSessions, ...currentSessions];
+            saveSessions(merged);
+            renderSavedSessions();
+            alert(`✓ ${importedCount} simulación(es) importada(s) correctamente.`);
+        } catch (err) {
+            alert('✗ Error al importar: ' + err.message);
+        }
+        input.value = '';
+    };
+    reader.readAsText(file);
+}
+
+// Drag & Drop
+const dropZone = document.getElementById('dropZone');
+if (dropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+    dropZone.addEventListener('drop', handleDrop, false);
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0 && files[0].name.endsWith('.json')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.sessions || !Array.isArray(data.sessions)) {
+                        throw new Error('Archivo no válido');
+                    }
+                    const currentSessions = getSessions();
+                    const newSessions = data.sessions.map(s => ({
+                        ...s,
+                        id: generateSessionId(),
+                        importedAt: new Date().toLocaleString('es-ES')
+                    }));
+                    saveSessions([...newSessions, ...currentSessions]);
+                    renderSavedSessions();
+                    alert(`✓ ${data.sessions.length} simulación(es) importada(s) por drag & drop.`);
+                } catch (err) {
+                    alert('✗ Error: archivo no válido');
+                }
+            };
+            reader.readAsText(files[0]);
+        }
+    }
+}
+
+function restoreSession(id) {
+    const sessions = getSessions();
+    const data = sessions.find(s => s.id === id);
+    if (!data) return;
+    persistenceData = data.persistenceData || {};
+    document.getElementById('splashScreen').style.display = 'none';
+    document.body.style.overflowY = 'auto';
+    const main = document.getElementById('mainContent');
+    main.classList.remove('opacity-0');
+    const fields = ['purchasePrice','taxPercent','mgmtFees','clientCash','interestRate','years','monthlyIncome','otherLoans','squareMeters'];
+    fields.forEach(id => { if (data[id] !== undefined) document.getElementById(id).value = data[id]; });
+    if (data.operationNotes !== undefined) {
+        document.getElementById('operationNotes').value = data.operationNotes;
+        syncPrintNotes();
+    }
+    document.getElementById('resTitulares').innerText = persistenceData.titulares || '—';
+    document.getElementById('resOficina').innerText = persistenceData.oficina || '—';
+    document.getElementById('printOffice').innerText = 'Oficina: ' + (persistenceData.oficina || '—');
+    calculateAll();
+    syncPrintNotes();
+}
+
+function renderSavedSessions() {
+    const sessions = getSessions();
+    const container = document.getElementById('savedSessionsContainer');
+    const list = document.getElementById('savedSessionsList');
+    const count = document.getElementById('sessionCount');
+
+    if (sessions.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+    count.innerText = sessions.length;
+
+    list.innerHTML = sessions.map(session => `
+        <div class="session-item flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 cursor-pointer group"
+             data-name="${session.name}"
+             data-date="${session.savedAt}"
+             data-office="${session.persistenceData?.oficina || ''}"
+             onclick="restoreSession('${session.id}')">
+            <div class="flex-1 min-w-0 mr-2">
+                <p class="text-[11px] font-bold text-white truncate">${session.name}</p>
+                <p class="text-[9px] text-slate-400">${session.savedAt} · ${session.persistenceData?.oficina || 'Sin oficina'}</p>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onclick="renameSession('${session.id}', event)" 
+                        class="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
+                        title="Renombrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </button>
+                <button onclick="deleteSession('${session.id}', event)" 
+                        class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                        title="Eliminar simulación">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    const searchInput = document.getElementById('sessionSearch');
+    if (searchInput && searchInput.value) {
+        filterSessions(searchInput.value);
+    }
+}
+
+renderSavedSessions();
+
+// Sincronizar notas para impresión
+function syncPrintNotes() {
+    const notes = document.getElementById('operationNotes');
+    const printNotes = document.getElementById('printNotes');
+    if (notes && printNotes) {
+        const text = notes.value.trim();
+        printNotes.textContent = text || '(Sin notas)';
+    }
+}
+document.getElementById('operationNotes').addEventListener('input', syncPrintNotes);
+window.addEventListener('beforeprint', syncPrintNotes);
+// Sincronizar al cargar, al imprimir y después de restaurar sesión
+window.addEventListener('load', syncPrintNotes);
+// Forzar sincronización también en el click del botón PDF
+const pdfBtn = document.querySelector('button[onclick="window.print()"]');
+if (pdfBtn) {
+    pdfBtn.addEventListener('click', function() {
+        syncPrintNotes();
+        setTimeout(syncPrintNotes, 100);
+    });
+}
+
+function sendByEmail() {
+    const confirmed = confirm('Vas a enviar esta simulación para su análisis, ¿estás seguro?');
+    if (!confirmed) return;
+
+    const btn = document.getElementById('sendBtn');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> Enviando...`;
+
+    const templateParams = {
+        oficina: persistenceData.oficina || '—',
+        titulares: persistenceData.titulares || '—',
+        edades: persistenceData.edades || '—',
+        hijos: persistenceData.hijos || '—',
+        precio: format(calculatedData.precio),
+        metros: (calculatedData.metros || 0) + ' m²',
+        impuestos: format(calculatedData.impuestos),
+        gestion: format(calculatedData.gestion),
+        ahorros: format(calculatedData.ahorros),
+        ahorros_entrada: format(calculatedData.ahorrosParaEntrada),
+        total_cliente: format(calculatedData.totalClientCost),
+        hipoteca: format(calculatedData.hipoteca),
+        anos: calculatedData.años,
+        interes: calculatedData.interes,
+        cuota: format(calculatedData.cuota),
+        ltv: calculatedData.ltv,
+        ratio: calculatedData.ratio,
+        ingresos: format(calculatedData.ingresos),
+        otros_prestamos: format(calculatedData.otrosPrestamos),
+        ahorros_ltv95: calculatedData.precio > 0 ? format(calculatedData.savingsFor95) : '—',
+        ahorros_ltv90: calculatedData.precio > 0 ? format(calculatedData.savingsFor90) : '—',
+        ahorros_ltv80: calculatedData.precio > 0 ? format(calculatedData.savingsFor80) : '—',
+        notas: document.getElementById('operationNotes').value.trim() || '(Sin notas)'
+    };
+
+    emailjs.send("service_gvprmqh", "template_e6mvwyc", templateParams)
+        .then(() => {
+            btn.innerHTML = '✓ Enviado';
+            btn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+            btn.classList.add('bg-emerald-600');
+            setTimeout(() => {
+                btn.innerHTML = origHTML;
+                btn.disabled = false;
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                btn.classList.remove('bg-emerald-600');
+            }, 3000);
+        })
+        .catch((err) => {
+            console.error('EmailJS error:', err);
+            btn.innerHTML = '✗ Error al enviar';
+            btn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+            btn.classList.add('bg-rose-600');
+            setTimeout(() => {
+                btn.innerHTML = origHTML;
+                btn.disabled = false;
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                btn.classList.remove('bg-rose-600');
+            }, 3000);
+        });
+}
+    </script>
+</body>
+</html>
